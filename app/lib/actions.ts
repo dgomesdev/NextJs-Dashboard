@@ -1,6 +1,8 @@
 'use server';
 
+import { signIn } from '@/auth';
 import { sql } from '@vercel/postgres';
+import { AuthError } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
@@ -11,13 +13,13 @@ const FormSchema = z.object({
         invalid_type_error: 'Please select a customer'
     }),
     amount: z.coerce.number().gt(
-        0, 
+        0,
         {
             message: 'Please enter an amount greater than $0'
         }),
     status: z.enum(
         ['pending', 'paid'],
-        
+
         {
             invalid_type_error: 'Please select a status'
         }),
@@ -120,5 +122,23 @@ export async function deleteInvoice(id: string) {
             message: 'Database error: Failed to delete invoice'
         }
     }
+}
 
+export async function authenticate(
+    prevState: string | undefined,
+    formData: FormData
+) {
+    try {
+        await signIn('credentials', formData);
+    } catch (error) {
+        if (error instanceof AuthError) {
+            switch (error.type) {
+                case 'CredentialsSignin':
+                    return 'Invalid email or password'
+                default:
+                    return 'Something went wrong'
+            }
+        }
+        throw error;
+    }
 }
